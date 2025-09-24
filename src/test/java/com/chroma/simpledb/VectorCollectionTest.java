@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Lightweight test harness without external dependencies.
+ * 使用纯 JDK 编写的轻量级测试入口，无需额外依赖。
  */
 public final class VectorCollectionTest {
 

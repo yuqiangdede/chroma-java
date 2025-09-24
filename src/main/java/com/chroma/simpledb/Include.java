@@ -1,7 +1,7 @@
 package com.chroma.simpledb;
 
 /**
- * Controls which optional fields are returned from read operations.
+ * 控制读取操作返回哪些可选字段的枚举。
  */
 public enum Include {
     EMBEDDINGS,
