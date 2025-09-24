@@ -6,8 +6,10 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Result of {@link VectorCollection#getByIds(List, java.util.Set)}.
  * 表示按 ID 检索集合时返回的结果。
+ * <p>
+ * 该结果对象不可变，并根据调用时的 include 参数判断是否实际携带向量、文档或元数据。
+
  */
 public final class CollectionResult {
 

@@ -2,6 +2,7 @@ package com.chroma.simpledb;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -51,20 +52,57 @@ final class VectorRecord {
     }
 
     /**
-     * 判断当前记录是否满足元数据的等值过滤条件。
+     * 判断当前记录是否满足查询时声明的所有元数据过滤条件。
      */
-    boolean matchesWhereEq(Map<String, Object> whereEq) {
-        if (whereEq == null || whereEq.isEmpty()) {
+    boolean matchesFilter(MetadataFilter filter) {
+        if (filter == null || filter.isEmpty()) {
+
             return true;
         }
         if (metadata.isEmpty()) {
             return false;
         }
-        for (Map.Entry<String, Object> entry : whereEq.entrySet()) {
+        for (Map.Entry<String, Object> entry : filter.equalsConditions().entrySet()) {
             Object value = metadata.get(entry.getKey());
             if (!Objects.equals(value, entry.getValue())) {
                 // 只要存在任一键不匹配，则不满足过滤条件
                 return false;
+            }
+        }
+        for (Map.Entry<String, List<Object>> entry : filter.inConditions().entrySet()) {
+            Object value = metadata.get(entry.getKey());
+            if (value == null) {
+                return false;
+            }
+            boolean matched = false;
+            for (Object candidate : entry.getValue()) {
+                if (Objects.equals(value, candidate)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                return false;
+            }
+        }
+        for (Map.Entry<String, MetadataFilter.NumberRange> entry : filter.numberRanges().entrySet()) {
+            Object value = metadata.get(entry.getKey());
+            if (!(value instanceof Number)) {
+                return false;
+            }
+            double numericValue = ((Number) value).doubleValue();
+            MetadataFilter.NumberRange range = entry.getValue();
+            if (range.min != null) {
+                int cmp = Double.compare(numericValue, range.min);
+                if (cmp < 0 || (cmp == 0 && !range.minInclusive)) {
+                    return false;
+                }
+            }
+            if (range.max != null) {
+                int cmp = Double.compare(numericValue, range.max);
+                if (cmp > 0 || (cmp == 0 && !range.maxInclusive)) {
+                    return false;
+                }
             }
         }
         return true;

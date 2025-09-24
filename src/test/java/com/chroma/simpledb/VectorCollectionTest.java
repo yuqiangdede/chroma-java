@@ -14,6 +14,7 @@ public final class VectorCollectionTest {
         VectorCollectionTest test = new VectorCollectionTest();
         test.addAndQueryReturnsNearest();
         test.metadataFilterLimitsResults();
+        test.metadataFilterSupportsInAndRange();
         test.dimensionMismatchThrows();
         test.upsertReplacesExisting();
         test.deleteRemovesEntries();
@@ -81,6 +82,44 @@ public final class VectorCollectionTest {
 
         assertEquals(List.of(List.of("x")), filtered.getIds(), "Metadata filter should only return matching id");
         assertEquals(1, filtered.getDistances().get(0).size(), "Unexpected number of distances after filtering");
+    }
+
+    private void metadataFilterSupportsInAndRange() {
+        DB.clear();
+        VectorCollection collection = DB.createCollection("filter-advanced", 2);
+        collection.add(
+                List.of("cam-1", "cam-2", "cam-3"),
+                List.of(
+                        new double[]{1.0, 0.0},
+                        new double[]{0.95, 0.05},
+                        new double[]{0.8, 0.2}
+                ),
+                null,
+                List.of(
+                        Map.of("cameraNo", "A01", "createdAt", 1700000000000L),
+                        Map.of("cameraNo", "A02", "createdAt", 1700000004000L),
+                        Map.of("cameraNo", "B01", "createdAt", 1700100000000L)
+                )
+        );
+
+        MetadataFilter filter = MetadataFilter.newBuilder()
+                .whereIn("cameraNo", List.of("A02", "B01"))
+                .whereNumberGreaterThanOrEqual("createdAt", 1700000004000L)
+                .whereNumberLessThan("createdAt", 1700200000000L)
+                .build();
+
+        QueryResult result = collection.query(
+                List.of(new double[]{0.94, 0.06}),
+                3,
+                filter,
+                EnumSet.of(Include.METADATA)
+        );
+
+        assertEquals(List.of(List.of("cam-2", "cam-3")), result.getIds(), "IN + 范围过滤结果不符合预期");
+        assertTrue(result.getMetadatas().isPresent(), "元数据应被包含在结果中");
+        List<Map<String, Object>> metadatas = result.getMetadatas().get().get(0);
+        assertEquals("A02", metadatas.get(0).get("cameraNo"), "首条记录 cameraNo 不正确");
+        assertEquals("B01", metadatas.get(1).get("cameraNo"), "次条记录 cameraNo 不正确");
     }
 
     private void dimensionMismatchThrows() {

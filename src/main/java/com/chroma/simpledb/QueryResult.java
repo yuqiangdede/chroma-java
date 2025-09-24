@@ -6,8 +6,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Result of a similarity query.
  * 表示相似度查询返回的结果集合。
+ * <p>
+ * 每个查询向量都会对应一组有序的命中结果，内部结构同样是不可变的，只会在 include 中请求的字段才真正存储数据。
  */
 public final class QueryResult {
 

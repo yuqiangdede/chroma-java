@@ -16,8 +16,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Represents a named collection of dense vectors stored entirely in memory.
  * 表示一个全部保存在内存中的命名稠密向量集合。
+ * <p>
+ * 该类负责管理所有写入、查询与删除操作，并通过读写锁协调并发访问。
  */
 public final class VectorCollection {
 
@@ -229,14 +230,14 @@ public final class VectorCollection {
     /**
      * 使用给定的查询向量执行相似度搜索，返回最近的前 {@code topK} 条记录。
      * <p>
-     * 等价于调用完整参数的 {@link #query(List, int, Map, Set)} 且不进行元数据过滤，也不额外返回可选字段。
+     * 等价于调用完整参数的 {@link #query(List, int, MetadataFilter, Set)} 且不进行元数据过滤，也不额外返回可选字段。
      *
      * @param queries 需要执行搜索的查询向量列表
      * @param topK    每个查询返回的最大结果数，必须为正数
      * @return 查询结果，包含每个查询命中的 ID 与距离
      */
     public QueryResult query(List<double[]> queries, int topK) {
-        return query(queries, topK, null, EnumSet.noneOf(Include.class));
+        return query(queries, topK, MetadataFilter.empty(), EnumSet.noneOf(Include.class));
     }
 
     /**
@@ -255,6 +256,26 @@ public final class VectorCollection {
                              int topK,
                              Map<String, Object> whereEq,
                              Set<Include> include) {
+        MetadataFilter filter = MetadataFilter.fromEquals(whereEq);
+        return query(queries, topK, filter, include);
+    }
+
+    /**
+     * 使用给定的查询向量执行相似度搜索，并支持组合的元数据过滤条件。
+     * <p>
+     * 搜索过程中会对所有记录进行线性扫描，采用余弦距离对结果排序，并逐项应用 {@link MetadataFilter}。
+     *
+     * @param queries        需要执行搜索的查询向量列表，元素维度必须匹配集合
+     * @param topK           每个查询返回的最大结果数，必须为正
+     * @param metadataFilter 支持等值、IN 与数值区间的元数据过滤条件
+     * @param include        控制返回哪些字段的枚举集合，例如 {@link Include#DOCUMENTS}
+     * @return {@link QueryResult}，包含每个查询对应的命中列表
+     * @throws IllegalArgumentException 当 {@code topK} 非正或查询向量维度不匹配时抛出
+     */
+    public QueryResult query(List<double[]> queries,
+                             int topK,
+                             MetadataFilter metadataFilter,
+                             Set<Include> include) {
         Objects.requireNonNull(queries, "queries");
         if (topK <= 0) {
             throw new IllegalArgumentException("topK must be positive");
@@ -262,6 +283,8 @@ public final class VectorCollection {
         for (double[] query : queries) {
             validateVector(query);
         }
+
+        MetadataFilter normalizedFilter = metadataFilter == null ? MetadataFilter.empty() : metadataFilter;
 
         EnumSet<Include> includes = normalizeInclude(include);
         boolean includeEmbeddings = includes.contains(Include.EMBEDDINGS);
@@ -281,7 +304,7 @@ public final class VectorCollection {
             List<VectorRecord> snapshot = new ArrayList<>(records.values());
             for (double[] query : queries) {
                 double queryNorm = l2Norm(query);
-                List<ScoredRecord> scored = topKRecords(snapshot, query, queryNorm, topK, whereEq);
+                List<ScoredRecord> scored = topKRecords(snapshot, query, queryNorm, topK, normalizedFilter);
                 List<String> idsForQuery = new ArrayList<>(scored.size());
                 List<Double> distancesForQuery = new ArrayList<>(scored.size());
                 List<double[]> embeddingsForQuery = includeEmbeddings ? new ArrayList<>(scored.size()) : null;
@@ -380,11 +403,12 @@ public final class VectorCollection {
                                            double[] query,
                                            double queryNorm,
                                            int topK,
-                                           Map<String, Object> whereEq) {
+                                           MetadataFilter metadataFilter) {
+
         // 使用大顶堆保留当前最优的 topK 结果
         PriorityQueue<ScoredRecord> heap = new PriorityQueue<>(Comparator.comparingDouble((ScoredRecord s) -> s.distance).reversed());
         for (VectorRecord record : snapshot) {
-            if (!record.matchesWhereEq(whereEq)) {
+            if (!record.matchesFilter(metadataFilter)) {
                 continue;
             }
             double distance = cosineDistance(query, queryNorm, record);

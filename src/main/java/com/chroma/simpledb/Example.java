@@ -4,8 +4,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Small demo showing how to use the in-memory database.
  * 用一个简短示例演示如何使用内存向量数据库。
+ * <p>
+ * 运行该入口类即可看到集合创建、写入与查询的完整流程输出。
  */
 public final class Example {
 
@@ -30,10 +31,15 @@ public final class Example {
         );
 
         // 使用余弦距离查询与查询向量最接近的两个结果，并返回文档与元数据
+
+        MetadataFilter filter = MetadataFilter.newBuilder()
+                .whereEquals("type", "summary")
+                .build();
+
         QueryResult result = collection.query(
                 List.of(new double[]{0.8, 0.2, 0.0}),
                 2,
-                Map.of("type", "summary"),
+                filter,
                 java.util.EnumSet.of(Include.DOCUMENTS, Include.METADATA)
         );
 
