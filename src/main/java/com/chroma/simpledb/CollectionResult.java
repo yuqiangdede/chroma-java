@@ -7,6 +7,7 @@ import java.util.Optional;
 
 /**
  * Result of {@link VectorCollection#getByIds(List, java.util.Set)}.
+ * 表示按 ID 检索集合时返回的结果。
  */
 public final class CollectionResult {
 
