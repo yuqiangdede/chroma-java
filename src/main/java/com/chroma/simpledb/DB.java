@@ -57,7 +57,6 @@ public final class DB {
     }
 
     /**
-     * Remove all collections. Intended for tests/demo reset.
      * 清空所有集合，主要用于测试或示例复位。
      */
     public static void clear() {

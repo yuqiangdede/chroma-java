@@ -35,18 +35,30 @@ public final class CollectionResult {
         this.metadatasIncluded = metadatasIncluded;
     }
 
+    /**
+     * 返回按输入顺序排列的记录 ID 列表。
+     */
     public List<String> getIds() {
         return ids;
     }
 
+    /**
+     * 返回可选的向量列表，只有在 include 中请求 EMBEDDINGS 时才会有值。
+     */
     public Optional<List<double[]>> getEmbeddings() {
         return embeddingsIncluded ? Optional.of(embeddings) : Optional.empty();
     }
 
+    /**
+     * 返回可选的文档列表，只有在 include 中请求 DOCUMENTS 时才会有值。
+     */
     public Optional<List<String>> getDocuments() {
         return documentsIncluded ? Optional.of(documents) : Optional.empty();
     }
 
+    /**
+     * 返回可选的元数据列表，只有在 include 中请求 METADATA 时才会有值。
+     */
     public Optional<List<Map<String, Object>>> getMetadatas() {
         return metadatasIncluded ? Optional.of(metadatas) : Optional.empty();
     }

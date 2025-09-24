@@ -6,8 +6,9 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Immutable container for a single vector entry.
  * 用于表示单条向量记录的不可变数据结构。
+ * <p>
+ * 每条记录包含 ID、原始向量、预计算的 L2 范数、文档以及元数据快照。
  */
 final class VectorRecord {
 
@@ -49,6 +50,9 @@ final class VectorRecord {
         return metadata;
     }
 
+    /**
+     * 判断当前记录是否满足元数据的等值过滤条件。
+     */
     boolean matchesWhereEq(Map<String, Object> whereEq) {
         if (whereEq == null || whereEq.isEmpty()) {
             return true;
