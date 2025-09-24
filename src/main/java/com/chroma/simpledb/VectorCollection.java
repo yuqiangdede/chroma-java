@@ -243,7 +243,7 @@ public final class VectorCollection {
     /**
      * 使用给定的查询向量执行相似度搜索，并支持元数据过滤及返回字段控制。
      * <p>
-     * 这是为了兼容旧版接口而保留的等值过滤入口，内部会转换为 {@link MetadataFilter}。
+     * 搜索过程中会对所有记录进行线性扫描，采用余弦距离对结果排序。
      *
      * @param queries  需要执行搜索的查询向量列表，元素维度必须匹配集合
      * @param topK     每个查询返回的最大结果数，必须为正
@@ -404,6 +404,7 @@ public final class VectorCollection {
                                            double queryNorm,
                                            int topK,
                                            MetadataFilter metadataFilter) {
+
         // 使用大顶堆保留当前最优的 topK 结果
         PriorityQueue<ScoredRecord> heap = new PriorityQueue<>(Comparator.comparingDouble((ScoredRecord s) -> s.distance).reversed());
         for (VectorRecord record : snapshot) {

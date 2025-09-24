@@ -49,10 +49,11 @@ public final class DB {
     }
 
     /**
+     * Retrieve a collection by name.
      * 根据集合名称获取对应实例；若不存在则返回 {@code null}。
      *
-     * @param name 集合名称
-     * @return 集合实例或 {@code null}
+     * @param name collection name 集合名称
+     * @return the collection or {@code null} if absent 返回集合或 {@code null}
      */
     public static VectorCollection getCollection(String name) {
         return COLLECTIONS.get(name);

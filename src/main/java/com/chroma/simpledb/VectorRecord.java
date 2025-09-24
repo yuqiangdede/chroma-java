@@ -56,6 +56,7 @@ final class VectorRecord {
      */
     boolean matchesFilter(MetadataFilter filter) {
         if (filter == null || filter.isEmpty()) {
+
             return true;
         }
         if (metadata.isEmpty()) {
@@ -64,6 +65,7 @@ final class VectorRecord {
         for (Map.Entry<String, Object> entry : filter.equalsConditions().entrySet()) {
             Object value = metadata.get(entry.getKey());
             if (!Objects.equals(value, entry.getValue())) {
+                // 只要存在任一键不匹配，则不满足过滤条件
                 return false;
             }
         }

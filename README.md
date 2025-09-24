@@ -6,12 +6,15 @@ chroma-java 是一个受 [`chroma-core/chroma`](https://github.com/chroma-core/c
 
 整个项目旨在提供“开箱即用”的 Java 内存向量数据库，所有数据都会保留在 JVM 堆内，进程结束后不会自动持久化。其核心流程可分为两层：快速概览与代码级细节。
 
+
 ### 快速流程概览
+
 
 1. **创建集合**：通过 `DB.createCollection(name, dimension)` 创建或获取一个指定名称和向量维度的集合。集合由 `VectorCollection` 表示，并使用读写锁保证线程安全。
 2. **写入数据**：调用 `VectorCollection.add` 或 `VectorCollection.upsert` 批量写入 ID、向量、可选的文档与元数据。内部会验证维度、复制向量并计算范数，最终以 `VectorRecord` 的形式存储在内存映射中。
 3. **查询数据**：通过 `VectorCollection.query` 传入查询向量、`topK` 数量以及可选的元数据过滤条件，集合会对当前快照逐条计算余弦距离并返回最近的若干条记录。
 4. **消费结果**：查询结果封装在 `QueryResult` 中，可按需获取 ID、距离、向量、文档和元数据；而按 ID 检索时则会得到 `CollectionResult`。调用方可以使用这些不可变结果对象安全地读取数据。
+
 
 ### 核心代码流程详解
 
@@ -28,6 +31,7 @@ chroma-java 是一个受 [`chroma-core/chroma`](https://github.com/chroma-core/c
 : `CollectionResult` 和 `QueryResult` 都是只读的结果包装器，内部使用不可变集合暴露数据，避免调用方在读取后误改动底层结构。
 
 结合这些步骤，就可以清晰地理解从创建集合、写入数据到执行查询的完整代码路径。
+
 
 ## 功能特性
 
@@ -89,7 +93,6 @@ System.out.println(result.getDistances());
 
 上述代码的可运行版本可在 `src/main/java/com/chroma/simpledb/Example.java` 中找到。
 
-若需要按照监控点编号和创建时间范围过滤，可以组合 `whereIn` 与数值区间条件：
 
 ```java
 MetadataFilter cameraFilter = MetadataFilter.newBuilder()
@@ -117,7 +120,6 @@ MetadataFilter cameraFilter = MetadataFilter.newBuilder()
 - `upsert(...)`：批量写入或覆盖记录，与 `add` 参数相同，若 ID 已存在则会替换原数据。
 - `deleteByIds(ids)`：根据 ID 列表删除记录，返回成功删除的条数。
 - `getByIds(ids, include)`：按 ID 批量读取记录，并通过 `include` 控制返回的字段，缺失的 ID 会被忽略。
-- `query(queries, topK, metadataFilter, include)`：执行余弦相似度查询，支持 `MetadataFilter` 组合等值、IN、数值范围过滤，并按距离升序返回前 `topK` 个结果。旧版仍可传入 `whereEq`（等值匹配），内部会自动转换为等价的 `MetadataFilter`。
 
 ### `MetadataFilter` 常用构造方式
 
@@ -125,6 +127,7 @@ MetadataFilter cameraFilter = MetadataFilter.newBuilder()
 - `whereIn(key, candidates)`：要求元数据键的值命中候选列表中的任意一个。
 - `whereNumberGreaterThan/GreaterThanOrEqual`：数值字段需大于（或大于等于）指定阈值。
 - `whereNumberLessThan/LessThanOrEqual`：数值字段需小于（或小于等于）指定阈值，可与大于条件配合形成闭区间或开区间。
+
 
 ## 设计说明
 
