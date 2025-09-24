@@ -7,6 +7,7 @@ import java.util.Optional;
 
 /**
  * Result of a similarity query.
+ * 表示相似度查询返回的结果集合。
  */
 public final class QueryResult {
 

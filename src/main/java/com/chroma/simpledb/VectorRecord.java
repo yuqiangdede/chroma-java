@@ -5,6 +5,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Immutable container for a single vector entry.
+ * 用于表示单条向量记录的不可变数据结构。
+ */
 final class VectorRecord {
 
     private final String id;
@@ -55,6 +59,7 @@ final class VectorRecord {
         for (Map.Entry<String, Object> entry : whereEq.entrySet()) {
             Object value = metadata.get(entry.getKey());
             if (!Objects.equals(value, entry.getValue())) {
+                // 只要存在任一键不匹配，则不满足过滤条件
                 return false;
             }
         }
