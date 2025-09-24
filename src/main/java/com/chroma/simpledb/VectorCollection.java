@@ -17,19 +17,20 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Represents a named collection of dense vectors stored entirely in memory.
+ * 表示一个全部保存在内存中的命名稠密向量集合。
  */
 public final class VectorCollection {
 
     private final String name;
     private final int dimension;
     private final Map<String, VectorRecord> records;
-    private final ReadWriteLock readWriteLock;
+    private final ReadWriteLock readWriteLock; // 控制并发读写的读写锁
 
     VectorCollection(String name, int dimension) {
         this.name = name;
         this.dimension = dimension;
         this.records = new HashMap<>();
-        this.readWriteLock = new ReentrantReadWriteLock();
+        this.readWriteLock = new ReentrantReadWriteLock(); // 默认提供公平的读写锁实现
     }
 
     public String getName() {
@@ -40,6 +41,9 @@ public final class VectorCollection {
         return dimension;
     }
 
+    /**
+     * 获取当前集合中记录的数量，使用读锁保护计数过程。
+     */
     public int size() {
         Lock read = readWriteLock.readLock();
         read.lock();
@@ -58,6 +62,7 @@ public final class VectorCollection {
                     List<double[]> embeddings,
                     List<String> documents,
                     List<Map<String, Object>> metadatas) {
+        // add 调用最终走向统一的批量写入逻辑，不允许覆盖已有记录
         storeBatch(ids, embeddings, documents, metadatas, false);
     }
 
@@ -66,9 +71,10 @@ public final class VectorCollection {
     }
 
     public void upsert(List<String> ids,
-                       List<double[]> embeddings,
-                       List<String> documents,
-                       List<Map<String, Object>> metadatas) {
+                    List<double[]> embeddings,
+                    List<String> documents,
+                    List<Map<String, Object>> metadatas) {
+        // upsert 在写入时允许覆盖已有记录
         storeBatch(ids, embeddings, documents, metadatas, true);
     }
 
@@ -77,6 +83,7 @@ public final class VectorCollection {
         Lock write = readWriteLock.writeLock();
         write.lock();
         try {
+            // 写锁保护删除过程，逐个移除匹配的记录
             int removed = 0;
             for (String id : ids) {
                 if (records.remove(id) != null) {
@@ -108,6 +115,7 @@ public final class VectorCollection {
         Lock read = readWriteLock.readLock();
         read.lock();
         try {
+            // 逐个查找记录并根据 include 配置构造结果
             for (String id : ids) {
                 VectorRecord record = records.get(id);
                 if (record == null) {
@@ -164,6 +172,7 @@ public final class VectorCollection {
         Lock read = readWriteLock.readLock();
         read.lock();
         try {
+            // 拷贝一份当前数据快照，避免查询期间阻塞写操作
             List<VectorRecord> snapshot = new ArrayList<>(records.values());
             for (double[] query : queries) {
                 double queryNorm = l2Norm(query);
@@ -225,6 +234,7 @@ public final class VectorCollection {
         List<String> normalizedDocuments = normalizeOptionalList(documents, ids.size(), "documents");
         List<Map<String, Object>> normalizedMetadatas = normalizeOptionalList(metadatas, ids.size(), "metadatas");
 
+        // 预先构建待写入的记录，确保所有校验在获取写锁之前完成
         List<VectorRecord> newRecords = new ArrayList<>(ids.size());
         for (int i = 0; i < ids.size(); i++) {
             String id = ids.get(i);
@@ -233,6 +243,7 @@ public final class VectorCollection {
             }
             double[] embedding = embeddings.get(i);
             validateVector(embedding);
+            // 复制向量避免外部修改，并提前计算范数提高查询效率
             double[] embeddingCopy = Arrays.copyOf(embedding, embedding.length);
             double norm = l2Norm(embeddingCopy);
             String document = normalizedDocuments.get(i);
@@ -244,12 +255,14 @@ public final class VectorCollection {
         write.lock();
         try {
             if (!allowOverwrite) {
+                // 如果不允许覆盖，则先检测是否存在重复 ID
                 for (VectorRecord newRecord : newRecords) {
                     if (records.containsKey(newRecord.id())) {
                         throw new IllegalArgumentException("id already exists: " + newRecord.id());
                     }
                 }
             }
+            // 将记录写入内存映射
             for (VectorRecord newRecord : newRecords) {
                 records.put(newRecord.id(), newRecord);
             }
@@ -263,6 +276,7 @@ public final class VectorCollection {
                                            double queryNorm,
                                            int topK,
                                            Map<String, Object> whereEq) {
+        // 使用大顶堆保留当前最优的 topK 结果
         PriorityQueue<ScoredRecord> heap = new PriorityQueue<>(Comparator.comparingDouble((ScoredRecord s) -> s.distance).reversed());
         for (VectorRecord record : snapshot) {
             if (!record.matchesWhereEq(whereEq)) {
@@ -275,6 +289,7 @@ public final class VectorCollection {
             if (heap.size() < topK) {
                 heap.offer(new ScoredRecord(record, distance));
             } else if (distance < heap.peek().distance) {
+                // 只保留距离更近的候选
                 heap.poll();
                 heap.offer(new ScoredRecord(record, distance));
             }
@@ -285,6 +300,7 @@ public final class VectorCollection {
     }
 
     private double cosineDistance(double[] query, double queryNorm, VectorRecord record) {
+        // 将余弦相似度转化为距离（1 - cosine），并避免出现负值
         double cosine = cosineSimilarity(query, record.embedding(), queryNorm, record.norm());
         double distance = 1.0 - cosine;
         if (distance < 0.0) {
@@ -294,6 +310,7 @@ public final class VectorCollection {
     }
 
     private double cosineSimilarity(double[] a, double[] b, double normA, double normB) {
+        // 预先计算好的范数为相似度计算提供加速
         if (normA == 0.0 || normB == 0.0) {
             return 0.0;
         }
@@ -305,6 +322,7 @@ public final class VectorCollection {
     }
 
     private double l2Norm(double[] vector) {
+        // 计算向量的 L2 范数，用于后续的余弦相似度
         double sum = 0.0;
         for (double v : vector) {
             sum += v * v;
@@ -313,6 +331,7 @@ public final class VectorCollection {
     }
 
     private void validateVector(double[] vector) {
+        // 检查向量对象是否存在以及维度是否满足集合要求
         if (vector == null) {
             throw new IllegalArgumentException("embedding must not be null");
         }
@@ -324,6 +343,7 @@ public final class VectorCollection {
 
     private <T> List<T> normalizeOptionalList(List<T> values, int expectedSize, String fieldName) {
         if (values == null) {
+            // 如果缺失则补齐为指定长度的 null 列表，便于统一处理
             List<T> result = new ArrayList<>(expectedSize);
             for (int i = 0; i < expectedSize; i++) {
                 result.add(null);
@@ -340,6 +360,7 @@ public final class VectorCollection {
         if (metadata == null || metadata.isEmpty()) {
             return null;
         }
+        // 保留插入顺序，避免调用方修改原始 map
         return new java.util.LinkedHashMap<>(metadata);
     }
 
@@ -347,6 +368,7 @@ public final class VectorCollection {
         if (metadata == null || metadata.isEmpty()) {
             return Map.of();
         }
+        // 返回不可变视图，确保结果对象只读
         return Collections.unmodifiableMap(new java.util.LinkedHashMap<>(metadata));
     }
 
@@ -354,6 +376,7 @@ public final class VectorCollection {
         if (include == null || include.isEmpty()) {
             return EnumSet.noneOf(Include.class);
         }
+        // 使用 EnumSet 提升 contains 判断效率
         return EnumSet.copyOf(include);
     }
 
