@@ -4,13 +4,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Small demo showing how to use the in-memory database.
+ * 用一个简短示例演示如何使用内存向量数据库。
+ * <p>
+ * 运行该入口类即可看到集合创建、写入与查询的完整流程输出。
  */
 public final class Example {
 
     public static void main(String[] args) {
+        // 创建一个维度为 3、名为 demo 的向量集合
         VectorCollection collection = DB.createCollection("demo", 3);
 
+        // 批量写入三条带有文档与元数据的向量记录
         collection.add(
                 List.of("a", "b", "c"),
                 List.of(
@@ -26,13 +30,18 @@ public final class Example {
                 )
         );
 
+        // 使用余弦距离查询与查询向量最接近的两个结果，并返回文档与元数据
+        MetadataFilter filter = MetadataFilter.newBuilder()
+                .whereEquals("type", "summary")
+                .build();
         QueryResult result = collection.query(
                 List.of(new double[]{0.8, 0.2, 0.0}),
                 2,
-                Map.of("type", "summary"),
+                filter,
                 java.util.EnumSet.of(Include.DOCUMENTS, Include.METADATA)
         );
 
+        // 打印查询得到的 ID、距离、文档与元数据
         System.out.println("Query IDs: " + result.getIds());
         System.out.println("Query distances: " + result.getDistances());
         result.getDocuments().ifPresent(docs -> System.out.println("Documents: " + docs));

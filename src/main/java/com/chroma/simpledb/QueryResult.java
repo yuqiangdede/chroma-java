@@ -6,7 +6,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Result of a similarity query.
+ * 表示相似度查询返回的结果集合。
+ * <p>
+ * 每个查询向量都会对应一组有序的命中结果，内部结构同样是不可变的，只会在 include 中请求的字段才真正存储数据。
  */
 public final class QueryResult {
 
@@ -37,22 +39,37 @@ public final class QueryResult {
         this.metadatasIncluded = metadatasIncluded;
     }
 
+    /**
+     * 返回所有查询的命中 ID，外层列表与查询顺序一一对应。
+     */
     public List<List<String>> getIds() {
         return ids;
     }
 
+    /**
+     * 返回所有查询的距离结果，距离列表与 {@link #getIds()} 的结构一致。
+     */
     public List<List<Double>> getDistances() {
         return distances;
     }
 
+    /**
+     * 返回可选的向量结果，只有在 include 中请求 EMBEDDINGS 时才会有值。
+     */
     public Optional<List<List<double[]>>> getEmbeddings() {
         return embeddingsIncluded ? Optional.of(embeddings) : Optional.empty();
     }
 
+    /**
+     * 返回可选的文档结果，只有在 include 中请求 DOCUMENTS 时才会有值。
+     */
     public Optional<List<List<String>>> getDocuments() {
         return documentsIncluded ? Optional.of(documents) : Optional.empty();
     }
 
+    /**
+     * 返回可选的元数据结果，只有在 include 中请求 METADATA 时才会有值。
+     */
     public Optional<List<List<Map<String, Object>>>> getMetadatas() {
         return metadatasIncluded ? Optional.of(metadatas) : Optional.empty();
     }
