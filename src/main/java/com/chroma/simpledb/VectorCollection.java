@@ -16,9 +16,8 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
+ * Represents a named collection of dense vectors stored entirely in memory.
  * 表示一个全部保存在内存中的命名稠密向量集合。
- * <p>
- * 该类负责管理所有写入、查询与删除操作，并通过读写锁协调并发访问。
  */
 public final class VectorCollection {
 

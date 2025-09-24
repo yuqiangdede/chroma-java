@@ -4,9 +4,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Small demo showing how to use the in-memory database.
  * 用一个简短示例演示如何使用内存向量数据库。
- * <p>
- * 运行该入口类即可看到集合创建、写入与查询的完整流程输出。
  */
 public final class Example {
 
